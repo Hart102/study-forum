@@ -20,7 +20,7 @@ def loginPage (request):
 
     # Prevent loggedIn user from viewing the login page
     if request.user.is_authenticated:
-        return redirect(("home"))
+        return redirect("home")
     
     if request.method == "POST":
         # Get input values
@@ -37,7 +37,7 @@ def loginPage (request):
 
         
         if user is not None: # If user exists, login user
-            login(request, user)  # The login method created a session in the database and broswer once a user is loggedIn
+            login(request, user)  # The login method creates a session in the database and broswer once a user is loggedIn
             return redirect("home")
 
         else:
@@ -91,10 +91,11 @@ def home (request):
           Q(description__icontains = q)
     )
 
-    topics = Topic.objects.all()
-    rooms_count = rooms.count()
+    topics = Topic.objects.all() # Get all the rooms topic
+    rooms_count = rooms.count() # Get total number of rooms
+    room_messages = Message.objects.filter(Q(room__topic__name__icontains = q)) # Get all the messages of a room
 
-    context = {'rooms': rooms, 'topics': topics, 'rooms_count': rooms_count}
+    context = {'rooms': rooms, 'topics': topics, 'rooms_count': rooms_count, "room_messages": room_messages}
     return render(request, 'base/home.html', context)
 
 
@@ -109,7 +110,10 @@ def room (request, pk):
     message is a child model of the room model, as it was seen in the model.py.
     Here we're selecting all the messages of a particular room """
 
-    room_messages = room.message_set.all().order_by("-created") # Get most recent messages
+    # Get all the participants in a room from the database``
+    participants = room.participants.all() # Many to many relationship
+
+    room_messages = room.message_set.all()  # .order_by("-created")  Get all the messages of a room from room table in the database
 
 
     if request.method == "POST":
@@ -119,26 +123,52 @@ def room (request, pk):
             body = request.POST.get("body")
         )
 
+        room.participants.add(request.user) # Add participant to the group were he/she just commnented
+
         return redirect("room", pk = room.id) # After creating message, Refresh and return user to that exact room
 
-    context = {'room': room, 'room_messages': room_messages}
+    context = {'room': room, 'room_messages': room_messages, 'participants': participants}
     return render (request, 'base/room.html', context)
 
 
+
+
+#======= User Profile =======
+def userProfile (request, pk):
+    user = User.objects.get(id = pk) # Get user using the user's Id
+    rooms = user.room_set.all() # Get all the rooms associted to a particular user
+    room_messages = user.message_set.all() # Get all the messages associted to a particular user (activity)
+    topics = Topic.objects.all()
+
+    context = {'user': user, 'rooms': rooms, 'room_messages': room_messages, 'topics': topics}
+    return render(request, 'base/profile.html', context)
 
 
 #======== Create a new Room ========
 @login_required(login_url = "login") # Prevent unAuthenticated user from viewing this page
 def createRoom (request):
     form = RoomForm()
+    topics = Topic.objects.all() # Get all the topics
     
     if request.method == "POST":
-        form = RoomForm(request.POST)
-        if form.is_valid(): # Validate form and save form data in the database
-            form.save()
-            return redirect("home")
+        topic_name = request.POST.get('topic')
+        topic, created = Topic.objects.get_or_create(name = topic_name)
 
-    context = {"form": form}
+        Room.objects.create(
+            host = request.user,
+            topic = topic,
+            name = request.POST.get('name'),
+            description = request.POST.get('description')
+        )
+        return redirect("home")
+
+        # form = RoomForm(request.POST)
+        # if form.is_valid(): # Validate form and save form data in the database
+        #     room = form.save(commit = False) # Get the instance of this room
+        #     room.host = request.user
+        #     room.save()
+
+    context = {"form": form, "topics": topics}
     return render(request, 'base/room_form.html', context)
 
 
@@ -150,18 +180,28 @@ def createRoom (request):
 def updateRoom (request, pk):
     room = Room.objects.get(id = pk) # Get the room to be edited with it's id
     form = RoomForm(instance = room) # This fills the form with the details of the room to be edited
+    topics = Topic.objects.all() # Get all the topics
+
 
     # Only allow the owner of the room to update the room
     if request.user != room.host:
         return HttpResponse("You are not allowed here!!")
 
     if request.method == "POST":
-        form = RoomForm(request.POST, instance = room) # Selecte the actual room to update
-        if form.is_valid:
-            form.save()
-            return redirect("home")
+        topic_name = request.POST.get('topic')
+        topic, created = Topic.objects.get_or_create(name = topic_name)
+        room.name = request.POST.get('name')
+        room.topic = topic
+        room.description = request.POST.get('description')
+        room.save()
 
-    context = {'form': form}
+        return redirect("home")
+
+        # form = RoomForm(request.POST, instance = room) # Selecte the actual room to update
+        # if form.is_valid:
+        #     form.save()
+
+    context = {'form': form, 'topics': topics, 'room': room}
     return render(request, 'base/room_form.html', context)
 
 
@@ -183,3 +223,26 @@ def deleteRoom (request, pk):
         return redirect("home")
 
     return render(request, 'base/delete.html', {"obj": room})
+
+
+
+#========== Delete Message ==========
+@login_required(login_url = "login") # Prevent unAuthenticated user from viewing this page
+def deleteMessage (request, pk):
+    message = Message.objects.get(id = pk)
+
+    # Only allow the owner of the room to delete the room
+    if request.user != message.user:
+        return HttpResponse("You are not allowed here!!")
+
+    if request.method == "POST":
+        message.delete() # Delete room from the database
+        return redirect("home")
+
+    return render(request, 'base/delete.html', {"obj": message})
+
+
+
+# NOTE
+# In Many-to-Many relationship: .all() is used to get all the related properties of an obect
+# In Many-to-One relationship: _set.all() is used to get all the related properties of an object

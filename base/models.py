@@ -30,8 +30,12 @@ class Message (models.Model):
     user = models.ForeignKey(User, on_delete = models.CASCADE) # Connecting user and message table
     room = models.ForeignKey(Room, on_delete = models.CASCADE) # Delete messages if the Room is deleted
     body = models.TextField()
-    update = models.DateTimeField(auto_now = True)
+    updated = models.DateTimeField(auto_now = True)
     created = models.DateTimeField(auto_now_add = True)
+
+
+    class Meta: # This displays the latest created and updated rooms first (Sorting)
+        ordering = ['-updated', '-created']
 
 
     def __str__(self):
