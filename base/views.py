@@ -4,7 +4,7 @@ from django.contrib.auth.models import User # Gets the instance of a user from t
 from django.contrib import messages # Helps to display Messages in the frontend(Error Or Success message)
 from django.db.models import Q # Used to check if some letters exist in a string
 from .models import Room, Topic, Message
-from .forms import RoomForm # Was used in creating dynamic form
+from .forms import RoomForm, UserForm # Was used in creating dynamic form
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required # Is used tp prevent a user that is not looged in from accessing some pages
 from django.contrib.auth.forms import UserCreationForm # Used to generate user registeration form
@@ -242,6 +242,24 @@ def deleteMessage (request, pk):
     return render(request, 'base/delete.html', {"obj": message})
 
 
+@login_required(login_url = "login")
+def updateUser (request):
+    user = request.user
+    form = UserForm(instance=user)
+
+    if request.method == "POST":
+        form = UserForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            return redirect("user-profile", pk=user.id)
+       
+
+    context = {"form": form}
+    return render(request, "base/update-user.html", context)
+
+
+def topicsPage (request):
+    return render(request, "base/topics.html", {})
 
 # NOTE
 # In Many-to-Many relationship: .all() is used to get all the related properties of an obect
