@@ -1,9 +1,8 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from django.contrib.auth.models import User # Gets the instance of a user from the database
 from django.contrib import messages # Helps to display Messages in the frontend(Error Or Success message)
 from django.db.models import Q # Used to check if some letters exist in a string
-from .models import Room, Topic, Message
+from .models import Room, Topic, Message, User
 from .forms import RoomForm, UserForm # Was used in creating dynamic form
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required # Is used tp prevent a user that is not looged in from accessing some pages
@@ -47,15 +46,10 @@ def loginPage (request):
     return render(request, 'base/login_register.html', context)
 
 
-
-
-
 #========= Logout route =========
 def logoutUser(request):
     logout(request) # Deletes the session on the browser and database
     return redirect("home")
-
-
 
 
 #========= Register route =========
@@ -78,8 +72,6 @@ def registerPage (request):
     return render(request, "base/login_register.html", context)
 
 
-
-
 #========== Home route ==========
 def home (request):
     q = request.GET.get('q') if request.GET.get('q') != None else ""
@@ -91,15 +83,12 @@ def home (request):
           Q(description__icontains = q)
     )
 
-    topics = Topic.objects.all() # Get all the rooms topic
+    topics = Topic.objects.all()[0:5] # Get all the rooms topic
     rooms_count = rooms.count() # Get total number of rooms
     room_messages = Message.objects.filter(Q(room__topic__name__icontains = q)) # Get all the messages of a room
 
     context = {'rooms': rooms, 'topics': topics, 'rooms_count': rooms_count, "room_messages": room_messages}
     return render(request, 'base/home.html', context)
-
-
-
 
 
 # =========Get all Rooms =========
@@ -129,8 +118,6 @@ def room (request, pk):
 
     context = {'room': room, 'room_messages': room_messages, 'participants': participants}
     return render (request, 'base/room.html', context)
-
-
 
 
 #======= User Profile =======
@@ -172,9 +159,6 @@ def createRoom (request):
     return render(request, 'base/room_form.html', context)
 
 
-
-
-
 #========== Update a Room ==========
 @login_required(login_url = "login") # Prevent unAuthenticated user from viewing this page
 def updateRoom (request, pk):
@@ -205,10 +189,6 @@ def updateRoom (request, pk):
     return render(request, 'base/room_form.html', context)
 
 
-
-
-
-
 #========== Delete Room ==========
 @login_required(login_url = "login") # Prevent unAuthenticated user from viewing this page
 def deleteRoom (request, pk):
@@ -223,7 +203,6 @@ def deleteRoom (request, pk):
         return redirect("home")
 
     return render(request, 'base/delete.html', {"obj": room})
-
 
 
 #========== Delete Message ==========
@@ -258,9 +237,18 @@ def updateUser (request):
     return render(request, "base/update-user.html", context)
 
 
-def topicsPage (request):
-    return render(request, "base/topics.html", {})
+# ==================Moble Screens==================
 
+
+def topicsPage (request):
+    q = request.GET.get('q') if request.GET.get('q') != None else ""
+    topics = Topic.objects.filter(name__icontains = q)
+
+    return render(request, "base/topics.html", { "topics": topics })
+
+def activityPage (request):
+    room_messages = Message.objects.all()
+    return render(request, "base/activity.html", { "room_messages": room_messages })
 # NOTE
 # In Many-to-Many relationship: .all() is used to get all the related properties of an obect
 # In Many-to-One relationship: _set.all() is used to get all the related properties of an object

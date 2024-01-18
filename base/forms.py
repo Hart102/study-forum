@@ -1,6 +1,5 @@
 from django.forms import ModelForm
-from .models import Room
-from django.contrib.auth.models import User
+from .models import Room, User
 
 # Generating a dynamic form based on the fields defined in room class
 # THis was used in creating rooms
